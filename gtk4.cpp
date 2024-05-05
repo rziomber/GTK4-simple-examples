@@ -222,7 +222,7 @@ static void activate (GtkApplication *app, gpointer user_data)
                                               GTK_STYLE_PROVIDER_PRIORITY_FALLBACK);
   gtk_widget_set_name(edit, "entry1");
   
-  gtk_widget_show (window);
+  gtk_window_present(GTK_WINDOW(window));
 }
 
 int main (int argc, char **argv)
