@@ -22,7 +22,7 @@
      gtk_window_set_child (GTK_WINDOW (window), grid);
      gtk_grid_attach (GTK_GRID (grid), button, 0, 0, 1, 1);
      gtk_grid_attach (GTK_GRID (grid), label, 0, 1, 1, 1);
-     gtk_widget_show (window);
+     gtk_window_present(GTK_WINDOW(window));
  }
 
  int main (int argc, char **argv)
