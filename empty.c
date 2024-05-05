@@ -9,7 +9,7 @@ static void activate (GtkApplication* app,
   window = gtk_application_window_new (app);
   gtk_window_set_title (GTK_WINDOW (window), "Window");
   gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
-  gtk_widget_show (window);
+  gtk_window_present(GTK_WINDOW(window));
 }
 
 int main (int argc, char **argv)
