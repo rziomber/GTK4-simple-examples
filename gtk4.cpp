@@ -20,54 +20,60 @@ struct WidgetsSet
 } widgetsSet;
 
 //https://docs.gtk.org/gtk4/class.FileChooserDialog.html
-static void file_picked_cb (GtkDialog *dialog, int response)
+static void file_picked_cb (GObject *gobject, GAsyncResult *result, gpointer data)
 {
-  if (response == GTK_RESPONSE_ACCEPT)
-  {
-    GtkFileChooser *chooser = GTK_FILE_CHOOSER (dialog);
-    g_autoptr(GFile) file = gtk_file_chooser_get_file (chooser);
-    char *filename = g_file_get_uri (file);
-    //save_to_file (file);
-    gtk_label_set_text(GTK_LABEL(label), filename);
-    g_object_unref(file);
-      g_free(filename);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GFile) file = gtk_file_dialog_open_finish (GTK_FILE_DIALOG (gobject), result, &error);
+  
+  if (error != NULL) {
+    g_print("error\n");
+    // the operation failed, or it was cancelled by the user
+  } else {
+    // do something with the file
+    g_print("%s\n",g_file_get_path (file));
   }
-  g_print ("%i\n", response);
-    
-  gtk_window_destroy (GTK_WINDOW (dialog));
+}
+
+static void on_save_response(GObject *source, GAsyncResult *result, gpointer user_data) {
+  GtkFileDialog *dialog = GTK_FILE_DIALOG(source);
+  GFile *file = gtk_file_dialog_save_finish(dialog, result, NULL);
+  
+  if (file != NULL) {
+    // Here you can save your file using the GFile object
+    // For example, you might write some content to the file
+    g_print("%s\n", g_file_get_path (file));
+    g_object_unref(file);
+  }
+  
+  // gtk_window_destroy(GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(source))));
 }
 
 static void show_file_dialog (GtkWidget *widget, gpointer data)
 {
-  GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File",
-                                                  NULL, GTK_FILE_CHOOSER_ACTION_OPEN,
-                                                  "_Cancel", GTK_RESPONSE_CANCEL,
-                                                  "_Open", GTK_RESPONSE_ACCEPT,
-                                                  NULL);
-  
-  g_signal_connect(dialog, "response", G_CALLBACK(file_picked_cb), data);
-  gtk_window_present (GTK_WINDOW (dialog));
+  g_autoptr(GtkFileDialog) dialog = gtk_file_dialog_new();
+  gtk_file_dialog_set_title(dialog, "Open file");
+  gtk_file_dialog_open(dialog, GTK_WINDOW(data),NULL,file_picked_cb,data);
 }
 
 static void show_save_dialog (GtkWidget *widget, gpointer data)
 {
-  GtkWidget *dialog = gtk_file_chooser_dialog_new("Save File",
-                                                  NULL, GTK_FILE_CHOOSER_ACTION_SAVE,
-                                                  "_Cancel", GTK_RESPONSE_CANCEL,
-                                                  "_Save", GTK_RESPONSE_ACCEPT,
-                                                  NULL);
+  g_autoptr(GtkFileDialog) dialog = gtk_file_dialog_new();
   
-  GtkFileFilter *filter = gtk_file_filter_new(); // filter 1
-  gtk_file_filter_set_name(filter, "Plain text (.txt)");
-  gtk_file_filter_add_pattern(filter, ".txt");
-  gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-  filter = gtk_file_filter_new(); // filter 2
-  gtk_file_filter_set_name(filter, "All files");
-  gtk_file_filter_add_pattern(filter, "*");
-  gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-  gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), ".txt");
-  g_signal_connect(dialog, "response", G_CALLBACK(file_picked_cb), data);
-  gtk_window_present (GTK_WINDOW (dialog));
+  g_autoptr(GtkFileFilter) filter = gtk_file_filter_new(); // filter 1
+  gtk_file_filter_set_name(filter, "Plain text");
+  gtk_file_filter_add_suffix(filter, "txt");
+  g_autoptr(GtkFileFilter) filter2 = gtk_file_filter_new(); // filter 2
+  gtk_file_filter_set_name(filter2, "All files");
+  gtk_file_filter_add_pattern(filter2, "*");
+  g_autoptr(GListStore) liststore = g_list_store_new(GTK_TYPE_FILE_FILTER);
+  
+  g_list_store_append(liststore, filter);
+  g_list_store_append(liststore, filter2);
+  
+  gtk_file_dialog_set_filters (GTK_FILE_DIALOG(dialog), G_LIST_MODEL(liststore));
+  gtk_file_dialog_set_initial_name (GTK_FILE_DIALOG(dialog),".txt");
+  
+  gtk_file_dialog_save(dialog, NULL/*GTK_WINDOW(widgetsSet.window)*/, NULL, on_save_response, NULL);
 }
 
 static void scale_value_changed (GtkWidget *widget, gpointer data)
@@ -97,7 +103,7 @@ static void new_window(GtkWidget *widget, gpointer   data)
   
   gtk_grid_attach(GTK_GRID(widgetsSet.grid), widgetsSet.label, 0, 0, 1, 1);
   
-  gtk_widget_show (widgetsSet.window);
+  gtk_window_present(GTK_WINDOW(widgetsSet.window));
   g_signal_connect(widgetsSet.window, "destroy", G_CALLBACK(+[](GtkWidget *widget, gpointer data) {
     gtk_widget_set_sensitive(GTK_WIDGET(data), TRUE);
   }),
@@ -212,10 +218,10 @@ static void activate (GtkApplication *app, gpointer user_data)
    * span 2 columns.
    */
   gtk_grid_attach (GTK_GRID (grid), button, 1, 6, 1, 1);
-
   
-  GtkCssProvider  *provider = gtk_css_provider_new ();
-  gtk_css_provider_load_from_data(provider, R"rawliteral(#entry1 {background-color: red;  font-weight: bold; color:red;})rawliteral", -1);
+  
+  g_autoptr(GtkCssProvider) provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_string(provider, R"rawliteral(#entry1 {background-color: red;  font-weight: bold; color:red;})rawliteral");
   GdkDisplay *display = gdk_display_get_default ();
   gtk_style_context_add_provider_for_display (display,
                                               GTK_STYLE_PROVIDER (provider),
